@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600&family=Yatra+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <title>Dashboard - Art Studio</title>
+</head>
+<body>
+  <header id="nav" class="site-header"></header>
+  <main class="page">
+    <h1 id="heading">My orders</h1>
+
+    <h2>Painting orders</h2>
+    <div id="orders"></div>
+
+    <h2>Wall painting bookings</h2>
+    <div id="bookings"></div>
+
+    <h2>Pottery requests</h2>
+    <div id="pottery"></div>
+  </main>
+  <div id="message"></div>
+
+  <script src="app.js"></script>
+  <script>
+    let user = null;
+
+    function button(label, action, id, style) {
+      return '<button class="small ' + (style || "") + '" data-action="' + action + '" data-id="' + id + '">' + label + "</button>";
+    }
+
+    function badge(status) {
+      return '<span class="badge ' + status + '">' + status + "</span>";
+    }
+
+    function table(headers, rows) {
+      return '<div class="table-wrap"><table><tr>' + headers.map(function (h) { return "<th>" + h + "</th>"; }).join("") +
+        "</tr>" + rows.join("") + "</table></div>";
+    }
+
+    function renderOrders(list) {
+      const isAdmin = user.role === "admin";
+      return table(["Painting", "Price", "Status"].concat(isAdmin ? ["Customer"] : ["Action"]), list.map(function (o) {
+        const last = isAdmin ? esc(o.customer) : (o.status === "placed" ? button("Cancel order", "cancel-order", o.id, "danger") : "");
+        return '<tr><td><span class="thumb">' + paintingImage(o) + "</span>" + esc(o.title) + "</td><td>" + money(o.price) +
+          "</td><td>" + badge(o.status) + "</td><td>" + last + "</td></tr>";
+      }));
+    }
+
+    function renderBookings(list) {
+      const isAdmin = user.role === "admin";
+      return table(["Date", "Wall size", "Address", "Price", "Status"].concat(isAdmin ? ["Customer", "Action"] : ["Action"]), list.map(function (b) {
+        let actions = "";
+        if (isAdmin && b.status === "requested") {
+          actions = button("Confirm", "confirm-booking", b.id, "primary") + button("Decline", "decline-booking", b.id, "danger");
+        } else if (!isAdmin && (b.status === "requested" || b.status === "confirmed")) {
+          actions = button("Cancel booking", "cancel-booking", b.id, "danger");
+        }
+        return "<tr><td>" + b.booking_date + "</td><td>" + b.wall_size + " sq ft</td><td>" + esc(b.address) +
+          "</td><td>" + money(b.price) + "</td><td>" + badge(b.status) + "</td>" +
+          (isAdmin ? "<td>" + esc(b.customer) + "</td>" : "") + "<td>" + actions + "</td></tr>";
+      }));
+    }
+
+    function renderPottery(list) {
+      const isAdmin = user.role === "admin";
+      return table(["Item", "Glaze", "Qty", "Needed by", "Status"].concat(isAdmin ? ["Customer", "Action"] : ["Action"]), list.map(function (r) {
+        let actions = "";
+        if (isAdmin && r.status === "requested") {
+          actions = button("Accept", "accept-pottery", r.id, "primary") + button("Decline", "decline-pottery", r.id, "danger");
+        } else if (!isAdmin && r.status === "requested") {
+          actions = '<a class="btn small" href="pottery.html?id=' + r.id + '">Edit</a>' + button("Cancel request", "cancel-pottery", r.id, "danger");
+        }
+        return "<tr><td>" + esc(r.item) + "</td><td>" + esc(r.glaze) + "</td><td>" + r.quantity + "</td><td>" +
+          r.needed_by + "</td><td>" + badge(r.status) + "</td>" +
+          (isAdmin ? "<td>" + esc(r.customer) + "</td>" : "") + "<td>" + actions + "</td></tr>";
+      }));
+    }
+
+    function reloadAll() {
+      loadList("orders", function () { return api("/orders"); }, renderOrders, "No painting orders yet. Find one you love on the Paintings page.");
+      loadList("bookings", function () { return api("/bookings"); }, renderBookings, "No wall bookings yet.");
+      loadList("pottery", function () { return api("/pottery-requests"); }, renderPottery, "No pottery requests yet.");
+    }
+
+    // which button -> which URL
+    const urls = {
+      "cancel-order": "/orders/{id}/cancel",
+      "cancel-booking": "/bookings/{id}/cancel",
+      "confirm-booking": "/bookings/{id}/confirm",
+      "decline-booking": "/bookings/{id}/decline",
+      "cancel-pottery": "/pottery-requests/{id}/cancel",
+      "accept-pottery": "/pottery-requests/{id}/accept",
+      "decline-pottery": "/pottery-requests/{id}/decline",
+    };
+
+    document.addEventListener("click", async function (e) {
+      const target = e.target.closest("[data-action]");
+      if (!target) return;
+      try {
+        const result = await api(urls[target.getAttribute("data-action")].replace("{id}", target.getAttribute("data-id")), "POST");
+        showMessage("message", result.message, false);
+      } catch (err) {
+        showMessage("message", err.message, true);
+      }
+      reloadAll();
+    });
+
+    requireLogin().then(function (u) {
+      if (!u) return;
+      user = u;
+      if (u.role === "admin") document.getElementById("heading").textContent = "All orders, bookings and requests";
+      reloadAll();
+    });
+  </script>
+</body>
+</html>

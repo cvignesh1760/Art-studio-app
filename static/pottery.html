@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600&family=Yatra+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <title>Pottery request - Art Studio</title>
+</head>
+<body>
+  <header id="nav" class="site-header"></header>
+  <main class="page">
+    <h1 id="title">Request custom pottery</h1>
+    <p class="lead">Choose an item and a glaze. The studio will accept or decline your request.</p>
+    <div class="two-col">
+      <div class="panel">
+        <label>Item <select id="item"></select></label>
+        <label>Glaze <select id="glaze"></select></label>
+        <label>Quantity <span class="hint">(1 to 12)</span> <input type="number" id="quantity" min="1" max="12" value="1"></label>
+        <label>Needed by <span class="hint">(at least 14 days from today)</span> <input type="date" id="neededBy"></label>
+        <div class="actions-row">
+          <button class="btn primary" id="saveBtn">Send request</button>
+          <a class="btn" href="dashboard.html">Back to My orders</a>
+        </div>
+      </div>
+      <aside class="summary">
+        <p style="margin:0">Good to know</p>
+        <ul style="margin-top:10px">
+          <li>You can edit or cancel a request until the studio responds.</li>
+          <li>After it is accepted or declined, it can no longer change.</li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+  <div id="message"></div>
+  <script src="app.js"></script>
+  <script>
+    // If the page is opened as pottery.html?id=5 we are EDITING request 5.
+    const editId = new URLSearchParams(window.location.search).get("id");
+
+    function fillSelect(id, options) {
+      document.getElementById(id).innerHTML = options.map(function (o) {
+        return '<option value="' + o.id + '">' + esc(o.name) + "</option>";
+      }).join("");
+    }
+
+    requireLogin("customer").then(async function (user) {
+      if (!user) return;
+      const d = new Date();
+      d.setDate(d.getDate() + 14);
+      document.getElementById("neededBy").min = d.toISOString().slice(0, 10);
+      try {
+        const config = await api("/config");
+        fillSelect("item", config.items);
+        fillSelect("glaze", config.glazes);
+        if (editId) {
+          document.getElementById("title").textContent = "Edit pottery request";
+          document.getElementById("saveBtn").textContent = "Save changes";
+          const r = await api("/pottery-requests/" + editId);
+          document.getElementById("item").value = r.item_id;
+          document.getElementById("glaze").value = r.glaze_id;
+          document.getElementById("quantity").value = r.quantity;
+          document.getElementById("neededBy").value = r.needed_by;
+        }
+      } catch (e) {
+        showMessage("message", e.message, true);
+      }
+    });
+
+    document.getElementById("saveBtn").onclick = async function () {
+      const form = {
+        item_id: document.getElementById("item").value,
+        glaze_id: document.getElementById("glaze").value,
+        quantity: document.getElementById("quantity").value,
+        needed_by: document.getElementById("neededBy").value,
+      };
+      try {
+        const result = editId
+          ? await api("/pottery-requests/" + editId, "PUT", form)
+          : await api("/pottery-requests", "POST", form);
+        showMessage("message", result.message, false);
+      } catch (e) {
+        showMessage("message", e.message, true);
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# secrets and local files
+.env
+*.db
+*.sqlite3
+
+# python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store

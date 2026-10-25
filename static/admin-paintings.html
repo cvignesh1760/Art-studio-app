@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600&family=Yatra+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <title>Manage paintings - Art Studio</title>
+</head>
+<body>
+  <header id="nav" class="site-header"></header>
+  <main class="page">
+    <h1>Manage paintings</h1>
+
+    <div class="panel" style="margin-bottom:36px">
+      <h2 id="formTitle">Add a painting</h2>
+      <label>Title <input type="text" id="title"></label>
+      <label>Description <textarea id="description" rows="2"></textarea></label>
+      <label>Price in ₹ <input type="number" id="price" min="1"></label>
+      <div class="actions-row">
+        <button class="btn primary" id="saveBtn">Add painting</button>
+        <button id="cancelEdit" style="display:none">Cancel edit</button>
+      </div>
+    </div>
+
+    <h2>All paintings</h2>
+    <div id="list"></div>
+  </main>
+  <div id="message"></div>
+
+  <script src="app.js"></script>
+  <script>
+    let paintings = [];
+    let editingId = null;
+
+    function render(list) {
+      paintings = list;
+      return '<div class="table-wrap"><table><tr><th>Painting</th><th>Price</th><th>Status</th><th>Action</th></tr>' +
+        list.map(function (p) {
+          const action = p.status === "available" ? '<button class="small" data-edit="' + p.id + '">Edit</button>' : '<span class="hint">Sold, cannot edit</span>';
+          return '<tr><td><span class="thumb">' + paintingImage(p) + "</span>" + esc(p.title) + "</td><td>" + money(p.price) +
+            '</td><td><span class="badge ' + p.status + '">' + p.status + "</span></td><td>" + action + "</td></tr>";
+        }).join("") + "</table></div>";
+    }
+
+    function reload() {
+      loadList("list", function () { return api("/paintings"); }, render, "No paintings yet. Add the first one above.");
+    }
+
+    function resetForm() {
+      editingId = null;
+      document.getElementById("title").value = "";
+      document.getElementById("description").value = "";
+      document.getElementById("price").value = "";
+      document.getElementById("formTitle").textContent = "Add a painting";
+      document.getElementById("saveBtn").textContent = "Add painting";
+      document.getElementById("cancelEdit").style.display = "none";
+    }
+
+    document.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-edit]");
+      if (!btn) return;
+      const p = paintings.find(function (x) { return x.id === Number(btn.getAttribute("data-edit")); });
+      editingId = p.id;
+      document.getElementById("title").value = p.title;
+      document.getElementById("description").value = p.description;
+      document.getElementById("price").value = p.price;
+      document.getElementById("formTitle").textContent = "Edit painting";
+      document.getElementById("saveBtn").textContent = "Save changes";
+      document.getElementById("cancelEdit").style.display = "inline-block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    document.getElementById("cancelEdit").onclick = resetForm;
+
+    document.getElementById("saveBtn").onclick = async function () {
+      const form = {
+        title: document.getElementById("title").value,
+        description: document.getElementById("description").value,
+        price: document.getElementById("price").value,
+      };
+      try {
+        if (editingId) {
+          await api("/paintings/" + editingId, "PUT", form);
+          showMessage("message", "Painting updated.", false);
+        } else {
+          await api("/paintings", "POST", form);
+          showMessage("message", "Painting added.", false);
+        }
+        resetForm();
+      } catch (e) {
+        showMessage("message", e.message, true);
+      }
+      reload();
+    };
+
+    requireLogin("admin").then(function (u) { if (u) reload(); });
+  </script>
+</body>
+</html>

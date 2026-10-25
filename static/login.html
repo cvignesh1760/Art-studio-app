@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600&family=Yatra+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <title>Log in - Art Studio</title>
+</head>
+<body>
+  <div class="auth">
+    <div class="auth-art">
+      <div id="art"></div>
+      <h2>Art Studio</h2>
+      <p>Paintings, wall murals and custom pottery, made by hand.</p>
+    </div>
+    <div class="auth-form">
+      <div class="panel">
+        <h1 style="font-size:2rem">Log in</h1>
+        <label>Email <input type="email" id="email" autocomplete="email"></label>
+        <label>Password <input type="password" id="password" autocomplete="current-password"></label>
+        <div class="actions-row"><button class="btn primary" id="loginBtn">Log in</button></div>
+        <p>New here? <a href="register.html">Create an account</a></p>
+      </div>
+    </div>
+  </div>
+  <div id="message"></div>
+  <script src="app.js"></script>
+  <script>
+    document.getElementById("art").innerHTML = dancersSvg();
+
+    async function logIn() {
+      try {
+        await api("/login", "POST", {
+          email: document.getElementById("email").value,
+          password: document.getElementById("password").value,
+        });
+        window.location.href = "index.html";
+      } catch (e) {
+        showMessage("message", e.message, true);
+      }
+    }
+    document.getElementById("loginBtn").onclick = logIn;
+    document.getElementById("password").onkeydown = function (e) { if (e.key === "Enter") logIn(); };
+  </script>
+</body>
+</html>

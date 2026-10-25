@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600&family=Yatra+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <title>Book a wall - Art Studio</title>
+</head>
+<body>
+  <header id="nav" class="site-header"></header>
+  <main class="page">
+    <h1>Book a wall painting</h1>
+    <p class="lead">An artist paints your wall on the date you choose. Each date can be booked by one customer only.</p>
+    <div class="two-col">
+      <div class="panel">
+        <label>Date <span class="hint">(7 to 90 days from today)</span> <input type="date" id="date"></label>
+        <label>Wall size in sq ft <span class="hint">(10 to 500)</span> <input type="number" id="size" min="10" max="500"></label>
+        <label>Address where we should paint <textarea id="address" rows="3" maxlength="300"></textarea></label>
+        <div class="actions-row"><button class="btn primary" id="bookBtn">Request booking</button></div>
+      </div>
+      <aside class="summary">
+        <p style="margin:0">Your price</p>
+        <div class="big" id="price">-</div>
+        <ul>
+          <li>Price is wall size times the rate per sq ft.</li>
+          <li>The studio confirms or declines your request.</li>
+          <li>You can cancel until 3 days before the date.</li>
+        </ul>
+      </aside>
+    </div>
+  </main>
+  <div id="message"></div>
+  <script src="app.js"></script>
+  <script>
+    let rate = 0;
+
+    function addDays(n) {
+      const d = new Date();
+      d.setDate(d.getDate() + n);
+      return d.toISOString().slice(0, 10);
+    }
+
+    function showPrice() {
+      const size = Number(document.getElementById("size").value);
+      document.getElementById("price").textContent = size ? money(size * rate) : "-";
+    }
+
+    requireLogin("customer").then(async function (user) {
+      if (!user) return;
+      document.getElementById("date").min = addDays(7);
+      document.getElementById("date").max = addDays(90);
+      try {
+        const config = await api("/config");
+        rate = config.wall_rate;
+      } catch (e) {
+        showMessage("message", e.message, true);
+      }
+      document.getElementById("size").oninput = showPrice;
+    });
+
+    document.getElementById("bookBtn").onclick = async function () {
+      try {
+        const result = await api("/bookings", "POST", {
+          date: document.getElementById("date").value,
+          wall_size: document.getElementById("size").value,
+          address: document.getElementById("address").value,
+        });
+        showMessage("message", "Booking requested. Price: " + money(result.price) + ". Track it under My orders.", false);
+      } catch (e) {
+        showMessage("message", e.message, true);
+      }
+    };
+  </script>
+</body>
+</html>

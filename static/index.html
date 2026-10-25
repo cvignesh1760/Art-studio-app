@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;600&family=Yatra+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <title>Paintings - Art Studio</title>
+</head>
+<body>
+  <header id="nav" class="site-header"></header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <h1>Folk art from across India, painted by hand.</h1>
+        <p>Buy an original painting, book an artist to paint your wall, or ask us to make custom pottery.</p>
+        <div class="actions" id="heroActions">
+          <a class="btn primary" href="#gallery">Browse paintings</a>
+        </div>
+      </div>
+      <div class="hero-art" id="art"></div>
+    </div>
+  </section>
+  <div class="zigzag"></div>
+
+  <main class="page" id="gallery">
+    <div class="gallery-head">
+      <h2>Paintings</h2>
+      <div class="chips" id="chips">
+        <button class="chip on" data-filter="all">All</button>
+        <button class="chip" data-filter="available">Available</button>
+        <button class="chip" data-filter="sold">Sold</button>
+      </div>
+    </div>
+    <p class="count" id="count"></p>
+    <div id="list"></div>
+  </main>
+
+  <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Painting details"></div>
+  <div id="message"></div>
+
+  <script src="app.js"></script>
+  <script>
+    let user = null;
+    let paintings = [];
+    let filter = "all";
+
+    function visible() {
+      return paintings.filter(function (p) { return filter === "all" || p.status === filter; });
+    }
+
+    function buyButton(p) {
+      if (user.role === "customer" && p.status === "available") {
+        return '<button class="primary small" data-buy="' + p.id + '">Buy</button>';
+      }
+      return "";
+    }
+
+    function renderGrid() {
+      const list = visible();
+      document.getElementById("count").textContent = list.length + (list.length === 1 ? " painting" : " paintings");
+      if (!list.length) {
+        return '<p class="empty">No paintings match this filter. Choose All to see every painting.</p>';
+      }
+      return '<div class="grid">' + list.map(function (p) {
+        return '<article class="card ' + p.status + '">' +
+          '<button class="media" data-open="' + p.id + '" aria-label="View ' + esc(p.title) + '">' +
+            paintingImage(p) + (p.status === "sold" ? '<span class="stamp">Sold</span>' : "") + "</button>" +
+          '<div class="card-body"><h3>' + esc(p.title) + "</h3>" +
+          (p.artist ? '<p class="artist">by ' + esc(p.artist) + "</p>" : "") +
+          '<p class="desc">' + esc(p.description) + "</p>" +
+          '<div class="card-foot"><span class="price">' + money(p.price) + "</span>" + buyButton(p) + "</div></div></article>";
+      }).join("") + "</div>";
+    }
+
+    function reload() {
+      loadList("list", function () { return api("/paintings"); }, function (list) {
+        paintings = list;
+        return renderGrid();
+      }, "No paintings yet. Please check back soon.");
+    }
+
+    // ---- lightbox ----
+    function openLightbox(id) {
+      const p = paintings.find(function (x) { return x.id === Number(id); });
+      if (!p) return;
+      const box = document.getElementById("lightbox");
+      box.innerHTML = '<div class="lb-box"><div class="lb-img">' + paintingImage(p) + "</div>" +
+        '<div class="lb-text"><button class="lb-close small" data-close="1">Close</button>' +
+        "<h2>" + esc(p.title) + "</h2>" + (p.artist ? '<p class="artist">by ' + esc(p.artist) + "</p>" : "") +
+        "<p>" + esc(p.description) + "</p>" +
+        '<p><span class="price">' + money(p.price) + '</span> <span class="badge ' + p.status + '">' + p.status + "</span></p>" +
+        buyButton(p) + "</div></div>";
+      box.hidden = false;
+      box.querySelector(".lb-close").focus();
+    }
+    function closeLightbox() { document.getElementById("lightbox").hidden = true; }
+
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeLightbox(); });
+
+    document.addEventListener("click", async function (e) {
+      const buy = e.target.closest("[data-buy]");
+      const open = e.target.closest("[data-open]");
+      const chip = e.target.closest("[data-filter]");
+
+      if (buy) {
+        try {
+          const result = await api("/orders", "POST", { painting_id: Number(buy.getAttribute("data-buy")) });
+          showMessage("message", result.message + " You can see it under My orders.", false);
+        } catch (err) {
+          showMessage("message", err.message, true);
+        }
+        closeLightbox();
+        reload();
+      } else if (open) {
+        openLightbox(open.getAttribute("data-open"));
+      } else if (chip) {
+        filter = chip.getAttribute("data-filter");
+        document.querySelectorAll(".chip").forEach(function (c) { c.classList.toggle("on", c === chip); });
+        document.getElementById("list").innerHTML = renderGrid();
+      } else if (e.target.id === "lightbox" || e.target.closest("[data-close]")) {
+        closeLightbox();
+      }
+    });
+
+    document.getElementById("art").innerHTML = dancersSvg();
+
+    requireLogin().then(function (u) {
+      if (!u) return;
+      user = u;
+      const actions = document.getElementById("heroActions");
+      if (u.role === "customer") {
+        actions.insertAdjacentHTML("beforeend", '<a class="btn light" href="book.html">Book a wall</a>');
+      } else {
+        actions.insertAdjacentHTML("beforeend", '<a class="btn light" href="admin-paintings.html">Manage paintings</a>');
+      }
+      reload();
+    });
+  </script>
+</body>
+</html>
